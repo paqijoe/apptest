@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mutabaah Harian App - Cloud Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #cbd5e1; }
+        .page-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(15px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-backdrop { background-color: rgba(15, 23, 42, 0.65); backdrop-filter: blur(2px); }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; background-color: #f8fafc; border: 2px dashed #94a3b8; }
+        
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 140px; background-color: #334155; color: #fff; text-align: center;
+            border-radius: 6px; padding: 6px 0; position: absolute; z-index: 10; bottom: 125%; left: 50%;
+            margin-left: -70px; opacity: 0; transition: opacity 0.3s; font-size: 10px; line-height: 1.4; pointer-events: none;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        
+        .app-container {
+            width: 100%; max-width: 480px; margin: 0 auto; min-height: 100vh;
+            background-color: #f8fafc; position: relative; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            display: flex; flex-direction: column; overflow-x: hidden;
+        }
+        @media (min-width: 481px) {
+            .app-container { min-height: 96vh; margin-top: 2vh; margin-bottom: 2vh; border-radius: 2rem; overflow: hidden; }
+        }
+
+        .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; }
+        .table-scroll::-webkit-scrollbar { height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .day-checkbox input:checked + div .day-text { display: none; }
+        .day-checkbox input:checked + div .check-icon { display: block; }
+        .day-checkbox input:not(:checked) + div .day-text { display: block; }
+        .day-checkbox input:not(:checked) + div .check-icon { display: none; }
+
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-teal-200 flex flex-col justify-center min-h-screen">
+
+    <div class="app-container">
+        <!-- HALAMAN LOGIN -->
+        <div id="login-page" class="page-container flex-1 flex flex-col justify-center p-6 page-enter relative overflow-hidden bg-slate-50">
+            <div class="absolute -top-32 -right-32 w-80 h-80 bg-teal-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70"></div>
+            <div class="absolute -bottom-32 -left-32 w-80 h-80 bg-indigo-100 rounded-full mix-blend-multiply filter blur-3xl opacity-70"></div>
+            
+            <div class="text-center mb-8 relative z-10">
+                <div class="w-20 h-20 bg-gradient-to-br from-teal-500 to-emerald-400 rounded-3xl mx-auto flex items-center justify-center shadow-xl shadow-teal-200/50 mb-6 transform -rotate-6">
+                    <i class="fas fa-book-open text-white text-3xl transform rotate-6"></i>
+                </div>
+                <h1 class="text-2xl font-black text-slate-800 tracking-tight">Mutabaah Harian</h1>
+                <p class="text-slate-500 text-xs mt-2 font-medium uppercase tracking-widest">Firebase Cloud Edition</p>
+            </div>
+
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative z-10">
+                <div class="mb-5">
+                    <label class="block text-slate-700 text-xs font-bold mb-2 uppercase tracking-wider pl-1">Masuk Aplikasi</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fas fa-fingerprint text-slate-400"></i>
+                        </div>
+                        <input id="login-code" type="text" placeholder="Ketik ID Anda..." onkeydown="if(event.key === 'Enter') checkLogin()" class="w-full pl-10 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all font-bold uppercase tracking-wider text-sm shadow-inner" autocomplete="off">
+                    </div>
+                    <p class="text-[10px] text-slate-400 font-medium mt-2 px-1 text-center">Gunakan ID Murobbi, Anggota Grup, atau Mandiri.</p>
+                </div>
+                <button onclick="checkLogin()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-teal-600/30 transition-all active:scale-[0.98] flex justify-center items-center gap-2">
+                    Masuk ke Dasbor <i class="fas fa-arrow-right text-sm"></i>
+                </button>
+            </div>
+
+            <div class="mt-8 text-center relative z-10">
+                <p class="text-sm text-slate-500 font-medium">
+                    Belum punya akun? <button onclick="showRegister()" class="text-teal-600 font-bold hover:text-teal-700 underline decoration-2 underline-offset-4">Daftar Langganan</button>
+                </p>
+            </div>
+        </div>
+
+        <!-- HALAMAN REGISTER -->
+        <div id="register-page" class="page-container hidden flex-1 flex-col p-6 page-enter bg-slate-50 overflow-y-auto">
+            <button onclick="showLogin()" class="text-slate-400 hover:text-slate-600 mb-4 self-start flex items-center gap-2 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-colors">
+                <i class="fas fa-arrow-left"></i> Kembali
+            </button>
+            
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-black text-slate-800">Pendaftaran Akun</h2>
+                <p class="text-slate-500 text-xs mt-1 font-medium">Pilih jenis akun dan paket langganan Anda.</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 space-y-5 mb-6">
+                <div class="flex bg-slate-100 p-1.5 rounded-2xl shadow-inner">
+                    <label class="w-1/2 cursor-pointer relative">
+                        <input type="radio" name="reg-type" value="murobbi" class="peer sr-only" checked onchange="renderPackages()">
+                        <div class="text-center py-3 text-xs font-bold text-slate-500 peer-checked:bg-white peer-checked:text-teal-700 peer-checked:shadow rounded-xl transition-all">Ketua / Murobbi</div>
+                    </label>
+                    <label class="w-1/2 cursor-pointer relative">
+                        <input type="radio" name="reg-type" value="mandiri" class="peer sr-only" onchange="renderPackages()">
+                        <div class="text-center py-3 text-xs font-bold text-slate-500 peer-checked:bg-white peer-checked:text-indigo-700 peer-checked:shadow rounded-xl transition-all">Mandiri / Pribadi</div>
+                    </label>
+                </div>
+
+                <div id="package-section">
+                    <label class="block text-slate-700 text-[10px] font-bold mb-2 uppercase tracking-wider pl-1">Pilih Paket Langganan</label>
+                    <div class="grid grid-cols-2 gap-3" id="package-options-container"></div>
+                </div>
+
+                <div class="space-y-3 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-slate-700 text-xs font-bold mb-1.5 pl-1">Nama Lengkap</label>
+                        <input id="reg-name" type="text" class="w-full bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-teal-500" placeholder="Fulan bin Fulan">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 text-xs font-bold mb-1.5 pl-1">Alamat Email</label>
+                        <input id="reg-email" type="email" class="w-full bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-teal-500" placeholder="email@contoh.com">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 text-xs font-bold mb-1.5 pl-1">Nomor WhatsApp</label>
+                        <input id="reg-phone" type="number" class="w-full bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-teal-500" placeholder="08123456789">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 text-xs font-bold mb-1.5 pl-1">Buat Kata Sandi</label>
+                        <input id="reg-password" type="password" class="w-full bg-slate-50 border border-slate-200 text-sm font-medium rounded-xl px-4 py-3 focus:outline-none focus:border-teal-500" placeholder="Minimal 6 karakter">
+                    </div>
+                </div>
+
+                <button onclick="proceedToPayment()" class="w-full mt-4 bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg shadow-teal-600/30 transition-all active:scale-[0.98]">
+                    Lanjut ke Pembayaran
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-4 mb-5">
+                <div class="flex-1 h-px bg-slate-200"></div>
+                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-center">Atau</p>
+                <div class="flex-1 h-px bg-slate-200"></div>
+            </div>
+            
+            <div class="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl text-center relative overflow-hidden mb-6">
+                <p class="text-sm font-extrabold text-indigo-800 mb-1 relative z-10"><i class="fas fa-eye"></i> Coba Preview Aplikasi?</p>
+                <button onclick="confirmPreviewPayment()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-3.5 px-4 rounded-xl shadow-md transition-all active:scale-[0.98] relative z-10 flex justify-center items-center gap-2 mt-2">
+                    Beli Akses Demo (Rp 5.000)
+                </button>
+            </div>
+            <div class="pb-10"></div>
+        </div>
+
+        <!-- HALAMAN PEMBAYARAN -->
+        <div id="payment-page" class="page-container hidden flex-1 flex-col p-6 page-enter bg-slate-50 justify-center">
+            <div class="bg-white p-6 rounded-[2rem] shadow-lg border border-slate-100 text-center relative overflow-hidden">
+                <div class="absolute top-0 left-0 right-0 h-2 bg-teal-500"></div>
+                <div class="w-16 h-16 bg-teal-50 rounded-full mx-auto flex items-center justify-center mb-4 mt-2">
+                    <i class="fas fa-file-invoice-dollar text-teal-600 text-2xl"></i>
+                </div>
+                <h3 class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total Tagihan</h3>
+                <div class="text-4xl font-black text-slate-800 mb-6 tracking-tight" id="invoice-price">Rp 0</div>
+                
+                <div class="bg-slate-50 p-4 rounded-2xl text-left text-sm space-y-3 border border-slate-100">
+                    <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] font-bold uppercase tracking-wide">Item</span><span class="font-bold text-slate-700 text-right text-xs" id="invoice-desc">-</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] font-bold uppercase tracking-wide">Nama</span><span class="font-bold text-slate-700 text-right truncate pl-4" id="invoice-name">-</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] font-bold uppercase tracking-wide">Email</span><span class="font-bold text-slate-700 text-right truncate pl-4" id="invoice-email">-</span></div>
+                    <div class="flex justify-between items-center"><span class="text-slate-500 text-[11px] font-bold uppercase tracking-wide">Status</span><span class="font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md text-[9px] uppercase tracking-wider">Menunggu Pembayaran</span></div>
+                </div>
+            </div>
+
+            <div class="mt-8 space-y-3">
+                <button onclick="confirmPayment()" class="w-full bg-teal-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all">
+                    <i class="fas fa-check-circle"></i> Selesaikan Pembayaran
+                </button>
+                <button onclick="showRegister()" class="w-full bg-white text-slate-500 border border-slate-200 font-bold py-3.5 px-4 rounded-xl">
+                    Batalkan
+                </button>
+            </div>
+        </div>
+
+        <!-- HALAMAN SUKSES -->
+        <div id="success-page" class="page-container hidden flex-1 flex-col items-center justify-center p-6 page-enter bg-teal-600 relative overflow-hidden">
+            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center mb-6 shadow-2xl animate-bounce relative z-10">
+                <i class="fas fa-check text-5xl text-teal-500"></i>
+            </div>
+            <h2 class="text-3xl font-black text-white mb-2 relative z-10">Sukses!</h2>
+            <p class="text-teal-50 text-center mb-10 px-4 font-medium relative z-10 text-sm" id="success-desc">Pembayaran berhasil.</p>
+            
+            <div class="bg-white p-6 rounded-[2rem] w-full text-center shadow-2xl relative z-10">
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Kode Akses / Login Anda</p>
+                <div class="text-2xl font-black text-slate-800 tracking-wider mb-5 font-mono select-all bg-slate-50 py-4 rounded-xl border border-slate-100 whitespace-pre-wrap" id="success-code">-</div>
+                <div class="text-xs text-slate-600 mb-6 bg-amber-50 border border-amber-100 p-4 rounded-xl text-left leading-relaxed flex gap-3 items-start">
+                    <i class="fas fa-info-circle text-amber-500 mt-0.5 text-lg"></i>
+                    <span id="success-note" class="font-medium">Gunakan kode ini untuk Login.</span>
+                </div>
+                <button onclick="showLogin()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-4 px-4 rounded-xl shadow-lg active:scale-[0.98]">
+                    Kembali ke Login
+                </button>
+            </div>
+        </div>
+
+        <!-- DASHBOARD MUROBBI -->
+        <div id="murobbi-dashboard" class="page-container hidden flex-1 flex-col bg-slate-50 page-enter overflow-y-auto pb-24 relative">
+            <div class="bg-teal-600 text-white p-6 pt-8 pb-20 rounded-b-[2.5rem] shadow-lg relative z-0">
+                <div class="flex justify-between items-start mb-4 relative z-10">
+                    <div>
+                        <span class="bg-teal-500 text-teal-50 text-[8px] uppercase font-black px-2 py-1 rounded shadow-sm tracking-widest mb-1.5 inline-block">Dasbor Ketua</span>
+                        <h2 class="text-2xl font-black tracking-tight" id="murobbi-name-display">Grup Fulan</h2>
+                    </div>
+                    <button onclick="logout()" class="w-10 h-10 bg-teal-700/50 rounded-full flex items-center justify-center text-teal-100 hover:bg-red-500 hover:text-white transition-colors tooltip relative">
+                        <i class="fas fa-power-off text-sm"></i><span class="tooltiptext">Keluar</span>
+                    </button>
+                </div>
+                <div class="flex items-center gap-3 mt-4 relative z-10">
+                    <div class="bg-white/10 px-4 py-2.5 rounded-xl border border-white/20 backdrop-blur-sm flex-1">
+                        <p class="text-[8px] text-teal-100/80 uppercase font-black tracking-widest mb-0.5">Kode Akses Anggota</p>
+                        <div class="flex justify-between items-center">
+                            <p class="text-xl font-black font-mono tracking-widest" id="murobbi-group-code">GRUP***</p>
+                            <i class="fas fa-users text-teal-300 opacity-50 text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-4 -mt-12 relative z-10 space-y-5">
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-50 pb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                            <div class="w-7 h-7 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center"><i class="fas fa-chart-line text-[11px]"></i></div>
+                            Laporan Mutabaah
+                        </h3>
+                        <button onclick="openAddMemberModal()" class="w-8 h-8 flex items-center justify-center bg-teal-50 text-teal-600 rounded-xl hover:bg-teal-100 transition shadow-sm border border-teal-100 tooltip relative">
+                            <i class="fas fa-user-plus text-xs"></i><span class="tooltiptext">Tambah Anggota</span>
+                        </button>
+                    </div>
+                    
+                    <div class="table-scroll border border-slate-100 rounded-xl relative shadow-inner bg-slate-50/30 w-full block">
+                        <table class="w-full text-xs text-left">
+                            <thead class="text-[8px] text-slate-400 uppercase bg-slate-50/80 border-y border-slate-100 tracking-wider text-center">
+                                <tr>
+                                    <th class="px-2 py-3 font-bold text-left rounded-l-lg min-w-[100px]">Anggota</th>
+                                    <th class="px-1 py-3 font-bold w-12 border-l border-slate-100">Poin</th>
+                                    <th class="px-1 py-3 font-bold border-l border-slate-100" colspan="4">Pekan 1-4</th>
+                                    <th class="px-1 py-3 font-bold border-l border-slate-100 rounded-r-lg">Detail</th>
+                                </tr>
+                            </thead>
+                            <tbody id="member-table-body" class="divide-y divide-slate-50"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-50 pb-3">
+                        <div>
+                            <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm">
+                                <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center"><i class="fas fa-list-check text-[11px]"></i></div>
+                                Daftar Amalan
+                            </h3>
+                        </div>
+                        <button onclick="openAddAmalanModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm transition-colors flex items-center">
+                            <i class="fas fa-plus mr-1"></i> Amalan
+                        </button>
+                    </div>
+                    <div id="amalan-list-container" class="space-y-2.5"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DASHBOARD ANGGOTA & MANDIRI -->
+        <div id="member-selection-page" class="page-container hidden flex-1 flex-col p-6 page-enter bg-slate-50 justify-center relative overflow-hidden">
+             <div class="absolute top-0 left-0 right-0 h-40 bg-teal-600 rounded-b-[3rem] opacity-10"></div>
+             <div class="text-center mb-10 relative z-10">
+                <div class="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center mb-4 shadow-xl shadow-slate-200"><i class="fas fa-user-friends text-teal-600 text-3xl"></i></div>
+                <h2 class="text-2xl font-black text-slate-800">Identifikasi Anggota</h2>
+                <p class="text-xs text-slate-500 font-medium mt-1">Pilih nama Anda di bawah ini.</p>
+            </div>
+            <div class="bg-white p-6 rounded-[2rem] shadow-lg shadow-slate-200/50 border border-slate-100 relative z-10">
+                 <select id="member-name-select" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-4 text-slate-800 font-bold focus:outline-none appearance-none text-center shadow-inner text-base cursor-pointer mb-4">
+                    <option value="" disabled selected>-- Ketuk untuk Memilih Nama --</option>
+                </select>
+                <button onclick="proceedToMemberWeek()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-4 rounded-xl shadow-lg transition-all active:scale-[0.98]">
+                    Masuk <i class="fas fa-arrow-right text-sm ml-1"></i>
+                </button>
+            </div>
+            <button onclick="logout()" class="mt-8 text-red-400 font-bold text-xs uppercase tracking-widest mx-auto flex items-center justify-center gap-1.5 relative z-10 px-4 py-2 hover:bg-red-50 rounded-lg transition-colors"><i class="fas fa-power-off"></i> Keluar</button>
+        </div>
+
+        <div id="member-week-step" class="page-container hidden flex-1 flex-col bg-slate-50 page-enter overflow-y-auto pb-10">
+            <div class="bg-teal-600 pt-6 pb-24 px-4 rounded-b-[2.5rem] relative">
+                 <div class="bg-white p-5 rounded-3xl shadow-xl shadow-teal-900/10 relative border border-slate-100 z-10 mt-2">
+                    <span id="member-type-badge" class="absolute -top-3 left-6 bg-slate-800 text-white text-[9px] font-black uppercase px-2.5 py-1 rounded-md shadow-sm tracking-widest">GRUP</span>
+                    
+                    <div class="absolute -top-3 right-5 flex gap-2">
+                        <button onclick="openEditProfileModal()" class="w-8 h-8 bg-slate-50 border border-slate-200 text-slate-400 rounded-full shadow-sm flex items-center justify-center hover:bg-slate-100 transition-colors tooltip relative"><i class="fas fa-pen text-[10px]"></i><span class="tooltiptext">Edit Profil</span></button>
+                        <button onclick="logout()" class="w-8 h-8 bg-red-50 text-red-500 border border-red-100 rounded-full shadow-sm flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors tooltip relative"><i class="fas fa-power-off text-[10px]"></i><span class="tooltiptext">Keluar</span></button>
+                    </div>
+                    
+                    <div class="mb-4 mt-2">
+                        <h3 class="text-xl font-black text-slate-800 truncate" id="display-member-name">Nama Anggota</h3>
+                        <p class="text-xs text-teal-600 font-bold flex items-center gap-1.5 mt-1"><i class="fab fa-whatsapp opacity-70"></i> <span id="display-member-wa">08...</span></p>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between items-center">
+                        <div>
+                            <p class="text-[8px] text-slate-400 font-black uppercase tracking-widest mb-0.5">Terakhir Mengisi</p>
+                            <p class="text-[10px] font-bold text-slate-700" id="display-last-filled">Belum ada riwayat</p>
+                        </div>
+                        <div class="flex gap-2 shrink-0">
+                            <button id="btn-gabung-grup" onclick="openGabungGrupModal()" class="hidden bg-indigo-50 border border-indigo-100 text-indigo-600 text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg"><i class="fas fa-link mr-1"></i> Gabung</button>
+                            <button id="btn-arsip-mandiri" onclick="openArsipModal()" class="hidden bg-slate-50 border border-slate-200 text-slate-500 text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg"><i class="fas fa-archive mr-1"></i> Arsip</button>
+                            <button onclick="openHistoryModal()" class="bg-teal-50 border border-teal-100 text-teal-700 text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg flex items-center gap-1.5"><i class="fas fa-history"></i> Riwayat</button>
+                        </div>
+                    </div>
+                    <button id="btn-ganti-akun" onclick="switchPage('member-selection-page')" class="w-full mt-4 py-2.5 text-[10px] font-black text-slate-400 uppercase tracking-widest border-t border-slate-100 rounded-b-xl text-center hidden bg-slate-50/50 hover:bg-slate-50 transition-colors"><i class="fas fa-exchange-alt mr-1"></i> Ganti Akun Lain</button>
+                </div>
+            </div>
+
+            <div class="px-4 -mt-10 relative z-10 mb-6">
+                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-100">
+                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2 text-sm border-b border-slate-50 pb-3">
+                         <div class="w-6 h-6 rounded bg-teal-50 text-teal-500 flex items-center justify-center"><i class="fas fa-calendar-check text-[10px]"></i></div>
+                         Pilih Pekan Evaluasi
+                     </h3>
+                     <div class="grid grid-cols-2 gap-3" id="week-buttons-container"></div>
+                 </div>
+            </div>
+
+            <div class="px-4 w-full max-w-full overflow-hidden">
+                <div class="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-6 w-full">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm"><div class="w-6 h-6 rounded bg-indigo-50 text-indigo-500 flex items-center justify-center"><i class="fas fa-table text-[10px]"></i></div> Overview Bulanan</h3>
+                        <button onclick="openCustomMonthPicker()" class="text-[10px] font-black bg-slate-50 hover:bg-slate-100 text-slate-600 px-3 py-2 rounded-xl uppercase tracking-widest border border-slate-200 flex items-center gap-2 transition-colors cursor-pointer shadow-sm" id="custom-month-display">
+                            <span id="current-month-label">AGUSTUS 2026</span> <i class="far fa-calendar-alt text-slate-400"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="table-scroll border border-slate-100 rounded-xl relative shadow-inner bg-slate-50/30 w-full block">
+                        <table class="w-full text-xs text-left min-w-[800px]">
+                            <thead class="text-[8px] text-slate-400 uppercase bg-slate-50 border-b border-slate-200 text-center tracking-wider">
+                                <tr>
+                                    <th rowspan="2" class="px-2 py-2 font-bold min-w-[140px] w-auto sticky left-0 bg-slate-50 z-20 border-r border-slate-200 text-left align-middle shadow-[2px_0_4px_rgba(0,0,0,0.02)]">Amalan</th>
+                                    <th rowspan="2" class="px-1.5 py-2 font-bold border-r border-slate-200 align-middle">Periode</th>
+                                    <th colspan="7" class="px-1 py-1 font-bold border-b border-slate-200 border-r border-slate-200">Pekan 1</th>
+                                    <th colspan="7" class="px-1 py-1 font-bold border-b border-slate-200 border-r border-slate-200">Pekan 2</th>
+                                    <th colspan="7" class="px-1 py-1 font-bold border-b border-slate-200 border-r border-slate-200">Pekan 3</th>
+                                    <th colspan="7" class="px-1 py-1 font-bold border-b border-slate-200">Pekan 4</th>
+                                </tr>
+                                <tr class="text-[7px] bg-white font-semibold">
+                                    <th class="p-1 border-r border-slate-100">A</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">R</th><th class="p-1 border-r border-slate-100">K</th><th class="p-1 border-r border-slate-100">J</th><th class="p-1 border-r border-slate-200 bg-slate-50/50">S</th>
+                                    <th class="p-1 border-r border-slate-100">A</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">R</th><th class="p-1 border-r border-slate-100">K</th><th class="p-1 border-r border-slate-100">J</th><th class="p-1 border-r border-slate-200 bg-slate-50/50">S</th>
+                                    <th class="p-1 border-r border-slate-100">A</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">R</th><th class="p-1 border-r border-slate-100">K</th><th class="p-1 border-r border-slate-100">J</th><th class="p-1 border-r border-slate-200 bg-slate-50/50">S</th>
+                                    <th class="p-1 border-r border-slate-100">A</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">S</th><th class="p-1 border-r border-slate-100">R</th><th class="p-1 border-r border-slate-100">K</th><th class="p-1 border-r border-slate-100">J</th><th class="p-1 bg-slate-50/50">S</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overview-table-body" class="divide-y divide-slate-100 text-center bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FORM PENGISIAN MUTABAAH -->
+        <div id="fill-mutabaah-page" class="page-container hidden flex-1 flex-col bg-slate-50 page-enter">
+            <div class="bg-teal-600 text-white pt-5 pb-3 px-5 shadow-md shrink-0 z-20">
+                <div class="flex justify-between items-center mb-3">
+                    <button onclick="backToMemberWeek()" class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors backdrop-blur-sm"><i class="fas fa-arrow-left text-sm"></i></button>
+                    <span class="text-[9px] font-black bg-white text-teal-700 px-3 py-1 rounded-full uppercase tracking-widest shadow-sm" id="form-week-title">Pekan 1</span>
+                </div>
+                <h2 class="text-xl font-black tracking-tight">Evaluasi Amalan</h2>
+                <p class="text-teal-100 text-[11px] mt-0.5 font-bold tracking-wide" id="form-week-dates">1 - 7 Agustus 2026</p>
+                <div class="flex mt-5 text-[9px] font-black text-teal-50 text-center uppercase tracking-widest pl-[30%] sm:pl-[35%] pr-2 pb-1">
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-0">1</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-1">2</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-2">3</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-3">4</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-4">5</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-teal-700/50 px-1.5 py-0.5 rounded" id="date-label-5">6</span></div>
+                    <div class="w-[14.2%] flex justify-center"><span class="text-[9px] font-bold bg-white text-teal-700 shadow-sm px-1.5 py-0.5 rounded" id="date-label-6">7</span></div>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 pb-10 z-10" id="mutabaah-form-container"></div>
+            
+            <div class="bg-white p-4 border-t border-slate-200 flex gap-3 shrink-0 rounded-b-[2rem] sm:rounded-b-none shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-20">
+                <button onclick="backToMemberWeek()" class="w-1/3 bg-slate-100 text-slate-500 font-bold py-4 rounded-xl transition-colors text-sm active:scale-95 border border-slate-200 shadow-sm">Kembali</button>
+                <button onclick="saveMutabaah()" class="w-2/3 bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95"><i class="fas fa-save"></i> Simpan</button>
+            </div>
+        </div>
+
+        <!-- MODAL-MODAL -->
+        <div id="amalan-modal" class="fixed inset-0 modal-backdrop hidden z-[100] flex items-end sm:items-center justify-center page-enter">
+            <div class="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-3xl p-6 relative max-h-[90vh] overflow-y-auto hide-scrollbar shadow-2xl flex flex-col">
+                <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-5 sm:hidden"></div>
+                <button onclick="closeAmalanModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full hidden sm:flex items-center justify-center text-slate-500"><i class="fas fa-times"></i></button>
+                <h3 class="text-lg font-black text-slate-800 mb-5" id="amalan-modal-title">Tambah Amalan</h3>
+                <div class="space-y-4">
+                    <input type="hidden" id="amalan-id">
+                    <div>
+                        <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Nama Amalan</label>
+                        <input id="amalan-name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-indigo-500" placeholder="Contoh: Tilawah">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Tipe Input</label>
+                            <select id="amalan-type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-medium focus:outline-none">
+                                <option value="checkbox">Ceklis</option><option value="number">Angka / Jumlah</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Poin / Target</label>
+                            <input id="amalan-points" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-indigo-600 focus:outline-none" value="5">
+                        </div>
+                    </div>
+                    <div class="border border-indigo-100 bg-indigo-50/50 p-4 rounded-2xl space-y-3">
+                        <p class="text-[10px] font-black tracking-widest uppercase text-indigo-800 flex items-center gap-1.5 border-b border-indigo-100/50 pb-2"><i class="fas fa-calendar-alt text-indigo-500"></i> Pengaturan Periode</p>
+                        <div>
+                            <select id="amalan-periode" onchange="togglePeriodeTarget()" class="w-full bg-white border border-indigo-100 shadow-sm rounded-xl px-3 py-2 text-xs font-medium focus:outline-none">
+                                <option value="harian">Harian (Tiap hari ada target)</option>
+                                <option value="pekanan">Pekanan (Ada batas limit ceklis)</option>
+                            </select>
+                        </div>
+                        <div id="amalan-target-container" class="hidden mt-2 pt-2 border-t border-indigo-100/50">
+                            <label class="block text-slate-700 text-[9px] font-black mb-2 uppercase tracking-widest">Batas Limit Ceklis</label>
+                            <div class="flex items-center gap-3">
+                                <input id="amalan-target-val" type="number" min="1" max="7" value="3" class="w-20 bg-white border border-indigo-200 rounded-xl px-3 py-2 text-sm font-bold text-center text-indigo-700 focus:outline-none">
+                                <span class="text-xs font-semibold text-slate-500">Kali / Pekan</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="saveAmalan()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg mt-2 active:scale-[0.98]">Simpan Amalan</button>
+                    <button id="amalan-delete-btn" onclick="deleteAmalan()" class="w-full bg-white text-red-500 border border-red-200 font-bold py-3.5 rounded-xl text-sm hidden">Hapus Amalan</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="add-member-modal" class="fixed inset-0 modal-backdrop hidden z-[100] flex items-end sm:items-center justify-center page-enter">
+            <div class="bg-white w-full max-w-md rounded-t-[2rem] sm:rounded-3xl p-6 relative">
+                <div class="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-5 sm:hidden"></div>
+                <button onclick="closeAddMemberModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full hidden sm:flex items-center justify-center text-slate-500"><i class="fas fa-times"></i></button>
+                <h3 class="text-lg font-black text-slate-800 mb-5 border-b border-slate-100 pb-3">Kelola Anggota Grup</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Nama Lengkap</label>
+                        <input id="new-member-name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500" placeholder="Fulan">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Nomor WhatsApp</label>
+                        <input id="new-member-wa" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-teal-500" placeholder="0812...">
+                    </div>
+                    <button onclick="addMember()" class="w-full bg-teal-600 text-white font-bold py-4 rounded-xl mt-2 active:scale-[0.98] shadow-lg">Tambahkan Anggota</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="edit-profile-modal" class="fixed inset-0 modal-backdrop hidden z-[100] flex items-center justify-center page-enter px-4">
+            <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 relative shadow-2xl">
+                <button onclick="closeEditProfileModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500"><i class="fas fa-times"></i></button>
+                <h3 class="text-lg font-black text-slate-800 mb-5 border-b border-slate-100 pb-3">Edit Profil</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Nama Lengkap</label>
+                        <input id="edit-profile-name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-teal-500">
+                    </div>
+                    <div>
+                        <label class="block text-slate-700 text-[10px] font-bold uppercase tracking-widest mb-1.5 pl-1">Nomor WhatsApp</label>
+                        <input id="edit-profile-wa" type="number" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-teal-500">
+                    </div>
+                    <button onclick="saveEditProfile()" class="w-full py-3.5 rounded-xl text-white bg-teal-600 hover:bg-teal-700 font-bold mt-2 shadow-md">Simpan Pembaruan</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="gabung-grup-modal" class="fixed inset-0 modal-backdrop hidden z-[100] flex items-center justify-center page-enter px-4">
+            <div class="bg-white w-full max-w-sm rounded-[2rem] p-6 relative shadow-2xl text-center border border-indigo-100">
+                <button onclick="closeGabungGrupModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400"><i class="fas fa-times"></i></button>
+                <div class="w-16 h-16 bg-indigo-50 rounded-full mx-auto flex items-center justify-center mb-3 mt-2"><i class="fas fa-link text-indigo-500 text-2xl"></i></div>
+                <h3 class="text-xl font-black text-slate-800 mb-1">Gabung Grup</h3>
+                <p class="text-[10px] text-slate-500 mb-6 font-medium px-2">Masukkan ID Ketua untuk bergabung.</p>
+                <div><input id="gabung-murobbi-id" type="text" placeholder="Contoh: KETUA123" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 text-sm font-black uppercase text-center mb-4 tracking-widest focus:outline-none focus:border-indigo-500"></div>
+                <button onclick="reqGabungGrup()" class="w-full py-4 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 font-bold shadow-lg">Kirim Permintaan</button>
+            </div>
+        </div>
+
+        <div id="history-modal" class="fixed inset-0 modal-backdrop hidden z-[100] flex items-center justify-center page-enter px-4 py-10">
+            <div class="bg-white w-full max-w-md rounded-[2rem] p-6 relative flex flex-col shadow-2xl max-h-[90vh]">
+                <button onclick="closeHistoryModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 z-10"><i class="fas fa-times"></i></button>
+                <h3 class="text-lg font-black text-slate-800 mb-4 border-b pb-3"><i class="fas fa-history text-teal-600 mr-1"></i> Timeline Aktivitas</h3>
+                <div class="overflow-y-auto hide-scrollbar flex-1 relative">
+                    <div class="absolute left-4 top-5 bottom-0 w-0.5 bg-slate-100"></div>
+                    <div id="history-list" class="space-y-6 pb-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="rapor-modal" class="fixed inset-0 modal-backdrop hidden z-[110] flex items-center justify-center page-enter p-3 sm:p-6 w-full max-w-full">
+            <div class="bg-white w-full max-w-lg mx-auto rounded-[2rem] p-5 sm:p-6 relative flex flex-col shadow-2xl max-h-[95vh]">
+                <button onclick="closeRaporModal()" class="absolute top-5 right-5 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 z-20"><i class="fas fa-times"></i></button>
+                <h3 class="font-black text-slate-800 text-base mb-4"><i class="fas fa-chart-bar text-indigo-500 mr-2"></i> Rapor Matriks <span class="text-[9px] text-slate-500 ml-2 uppercase tracking-widest" id="rapor-member-name"></span></h3>
+                <div class="table-scroll border border-slate-100 rounded-xl relative shadow-inner bg-slate-50/30 w-full block pb-2">
+                     <table class="w-full text-xs text-left min-w-[500px]">
+                        <thead class="text-[8px] text-slate-400 uppercase bg-slate-50 border-b border-slate-200">
+                            <tr>
+                                <th class="px-3 py-3 font-bold min-w-[130px] sticky left-0 bg-slate-50">Amalan & Periode</th>
+                                <th class="px-2 py-3 font-bold text-center border-l border-slate-200">P1</th><th class="px-2 py-3 font-bold text-center border-l">P2</th><th class="px-2 py-3 font-bold text-center border-l">P3</th><th class="px-2 py-3 font-bold text-center border-l">P4</th>
+                                <th class="px-2 py-3 font-black text-center border-l text-indigo-700 bg-indigo-50/80">TOT</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rapor-table-body" class="divide-y divide-slate-100 bg-white"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUSTOM MONTH PICKER MODAL -->
+        <div id="custom-month-modal" class="fixed inset-0 modal-backdrop hidden z-[130] flex items-end sm:items-center justify-center page-enter">
+            <div class="bg-white w-full max-w-sm rounded-t-[2rem] sm:rounded-3xl p-6 relative shadow-2xl text-center">
+                <button onclick="closeCustomMonthPicker()" class="absolute top-4 right-4 w-8 h-8 bg-slate-50 rounded-full flex items-center justify-center text-slate-400"><i class="fas fa-times"></i></button>
+                <h3 class="font-black text-slate-800 mb-4 mt-2">Pilih Bulan Overview</h3>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Bulan</p>
+                        <select id="custom-month-sel" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold focus:outline-none appearance-none text-center">
+                            <option value="01">Januari</option><option value="02">Februari</option><option value="03">Maret</option><option value="04">April</option>
+                            <option value="05">Mei</option><option value="06">Juni</option><option value="07">Juli</option><option value="08" selected>Agustus</option>
+                            <option value="09">September</option><option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+                        </select>
+                    </div>
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Tahun</p>
+                        <select id="custom-year-sel" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold focus:outline-none appearance-none text-center">
+                            <option value="2025">2025</option><option value="2026" selected>2026</option><option value="2027">2027</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="applyCustomMonth()" class="w-full py-3.5 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 font-bold shadow-md">Terapkan</button>
+            </div>
+        </div>
+
+        <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-full text-xs font-bold shadow-2xl transition-all duration-300 opacity-0 pointer-events-none z-[200] flex items-center gap-2.5 whitespace-nowrap border border-slate-700">
+            <span id="toast-icon"></span><span id="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Environment variables provided by runtime or fallback
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mutabaah-harian-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyDummyKeyForVercelPreviewOnly-ReplaceWithRealConfig",
+            authDomain: "mutabaah-app.firebaseapp.com",
+            projectId: "mutabaah-app",
+            storageBucket: "mutabaah-app.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abc"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let currentRole = null;
+        let currentGroupCode = null;
+        let activeData = null;
+        let currentSelectedMemberIndex = null;
+        let currentFillWeek = null;
+        let selectedOverviewMonth = "2026-08";
+
+        const packagePricing = {
+            murobbi: [ { id: '1m', label: '1 Bulan', price: 50000 }, { id: '3m', label: '3 Bulan', price: 100000 }, { id: '6m', label: '6 Bulan', price: 150000 }, { id: '1y', label: '1 Tahun', price: 250000 } ],
+            mandiri: [ { id: '1m', label: '1 Bulan', price: 15000 }, { id: '3m', label: '3 Bulan', price: 40000 }, { id: '6m', label: '6 Bulan', price: 60000 }, { id: '1y', label: '1 Tahun', price: 100000 } ]
+        };
+
+        // Initialize Auth
+        async function initAuth() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                currentUser = auth.currentUser;
+            } catch (e) {
+                console.error("Auth error:", e);
+            }
+        }
+        initAuth();
+
+        window.switchPage = function(pageId) {
+            document.querySelectorAll('.page-container').forEach(el => { el.classList.add('hidden'); el.classList.remove('flex'); });
+            const targetPage = document.getElementById(pageId);
+            if (targetPage) { targetPage.classList.remove('hidden'); targetPage.classList.add('flex'); window.scrollTo(0, 0); }
+        };
+
+        window.showToast = function(msg, type = "success") {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').innerText = msg;
+            document.getElementById('toast-icon').innerHTML = type === 'success' ? '<i class="fas fa-check-circle text-teal-400"></i>' : '<i class="fas fa-exclamation-circle text-red-400"></i>';
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, -24px)';
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 0)'; }, 3000);
+        };
+
+        window.showLogin = () => switchPage('login-page');
+        window.showRegister = () => { switchPage('register-page'); renderPackages(); };
+
+        window.renderPackages = function() {
+            const type = document.querySelector('input[name="reg-type"]:checked').value;
+            const container = document.getElementById('package-options-container');
+            container.innerHTML = '';
+            packagePricing[type].forEach((pkg, i) => {
+                const checked = i === 3 ? 'checked' : '';
+                const colorTheme = type === 'murobbi' ? 'teal' : 'indigo';
+                container.innerHTML += `
+                    <label class="cursor-pointer relative h-full">
+                        <input type="radio" name="reg-package" value="${pkg.id}" data-price="${pkg.price}" data-label="${pkg.label}" class="peer sr-only" ${checked}>
+                        <div class="text-center p-3 border border-slate-200 bg-slate-50 peer-checked:bg-${colorTheme}-50 peer-checked:border-${colorTheme}-500 rounded-xl transition-all h-full flex flex-col justify-center shadow-sm">
+                            <div class="text-[9px] font-black uppercase mb-1 text-slate-400 peer-checked:text-${colorTheme}-600 tracking-widest">${pkg.label}</div>
+                            <div class="text-sm font-black text-slate-700 peer-checked:text-${colorTheme}-700">Rp ${(pkg.price/1000)}k</div>
+                        </div>
+                    </label>
+                `;
+            });
+        };
+
+        window.proceedToPayment = function() {
+            const type = document.querySelector('input[name="reg-type"]:checked').value;
+            const pkgInput = document.querySelector('input[name="reg-package"]:checked');
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const phone = document.getElementById('reg-phone').value.trim();
+            const pass = document.getElementById('reg-password').value;
+
+            if(!name || !email || !phone || !pass) return showToast("Lengkapi semua form!", "error");
+            if(!pkgInput) return showToast("Pilih paket langganan!", "error");
+
+            const price = parseInt(pkgInput.dataset.price);
+            document.getElementById('invoice-price').innerText = 'Rp ' + price.toLocaleString('id-ID');
+            document.getElementById('invoice-desc').innerText = (type === 'murobbi' ? 'Akses Murobbi (' : 'Akses Mandiri (') + pkgInput.dataset.label + ')';
+            document.getElementById('invoice-name').innerText = name;
+            document.getElementById('invoice-email').innerText = email;
+            window.tempRegData = { type, name, email, phone, duration: pkgInput.value };
+            switchPage('payment-page');
+        };
+
+        window.confirmPayment = async function() {
+            const d = window.tempRegData;
+            let expDate = new Date();
+            if(d.duration === '1m') expDate.setMonth(expDate.getMonth() + 1);
+            if(d.duration === '3m') expDate.setMonth(expDate.getMonth() + 3);
+            if(d.duration === '6m') expDate.setMonth(expDate.getMonth() + 6);
+            if(d.duration === '1y') expDate.setFullYear(expDate.getFullYear() + 1);
+            const expStr = expDate.toLocaleDateString('id-ID', { day:'numeric', month:'short', year:'numeric' });
+            
+            let newCode = d.type === 'murobbi' ? 'KETUA' + Math.floor(Math.random() * 900 + 100) : 'USER' + Math.floor(Math.random() * 900 + 100);
+            
+            let initialData = d.type === 'murobbi' ? {
+                type: 'murobbi', name: d.name, email: d.email, whatsapp: d.phone, expired: expStr, status: 'Aktif',
+                amalan: [ { id: 1, name: 'Salat Wajib Berjamaah', type: 'checkbox', points: 10, periode: 'harian', target: 0 } ],
+                members: []
+            } : {
+                type: 'mandiri', name: d.name, email: d.email, whatsapp: d.phone, expired: expStr, status: 'Aktif',
+                amalan: [ { id: 1, name: 'Salat Wajib', type: 'checkbox', points: 10, periode: 'harian', target: 0 } ],
+                points: 0, weeks: { 1:{}, 2:{}, 3:{}, 4:{} }, lastFilled: '-', activityTimeline: [], arsip: []
+            };
+
+            try {
+                if(currentUser) {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', newCode);
+                    await setDoc(docRef, initialData);
+                }
+            } catch(e) { console.error("Firestore save error:", e); }
+
+            document.getElementById('success-code').innerText = newCode;
+            document.getElementById('success-desc').innerText = "Pembayaran Paket " + d.type.toUpperCase() + " Sukses!";
+            document.getElementById('success-note').innerText = `Gunakan ID ${newCode} untuk login.`;
+            switchPage('success-page');
+        };
+
+        window.confirmPreviewPayment = function() {
+            document.getElementById('success-code').innerText = "DEMOKETUA";
+            document.getElementById('success-desc').innerText = "Akses Demo Aktif";
+            document.getElementById('success-note').innerText = "Gunakan kode DEMOKETUA untuk mencoba aplikasi.";
+            switchPage('success-page');
+        };
+
+        window.checkLogin = async function() {
+            const inputCode = document.getElementById('login-code').value.trim().toUpperCase();
+            if(!inputCode) return showToast("Masukkan ID Anda!", "error");
+
+            if(inputCode === 'DEMOKETUA') {
+                currentRole = 'murobbi';
+                currentGroupCode = 'DEMOKETUA';
+                activeData = {
+                    type: 'murobbi', name: 'Grup Demo', expired: '2027', status: 'Aktif',
+                    amalan: [ { id: 1, name: 'Salat Wajib', type: 'checkbox', points: 10, periode: 'harian', target: 0 } ],
+                    members: [ { name: 'Peserta Demo', whatsapp: '628', points: 0, status: 'Belum Mengisi', weeks: { 1:{}, 2:{}, 3:{}, 4:{} }, lastFilled: '-' } ]
+                };
+                setupMurobbiDashboard();
+                return;
+            }
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', inputCode);
+                const docSnap = await getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    return showToast("ID tidak ditemukan di database cloud!", "error");
+                }
+
+                const data = docSnap.data();
+                if(data.status === 'Nonaktif') return showToast("Akun dinonaktifkan.", "error");
+
+                currentRole = data.type;
+                currentGroupCode = inputCode;
+                activeData = data;
+
+                if (currentRole === 'murobbi') {
+                    setupMurobbiDashboard();
+                } else if (currentRole === 'mandiri') {
+                    setupMandiriDashboard();
+                }
+            } catch (e) {
+                console.error(e);
+                showToast("Terjadi kesalahan koneksi database.", "error");
+            }
+        };
+
+        function setupMurobbiDashboard() {
+            switchPage('murobbi-dashboard');
+            document.getElementById('murobbi-name-display').innerText = activeData.name;
+            document.getElementById('murobbi-group-code').innerText = currentGroupCode;
+            renderAmalanList();
+            renderMembers();
+            showToast("Berhasil masuk sebagai Ketua.");
+        }
+
+        function setupMandiriDashboard() {
+            document.getElementById('display-member-name').innerText = activeData.name;
+            document.getElementById('display-member-wa').innerText = activeData.whatsapp || '-';
+            document.getElementById('display-last-filled').innerText = activeData.lastFilled || 'Belum ada riwayat';
+            document.getElementById('member-type-badge').innerText = 'MANDIRI';
+            document.getElementById('member-type-badge').className = 'absolute -top-3 left-6 bg-indigo-600 text-white text-[9px] font-black uppercase px-2.5 py-1 rounded-md shadow-sm tracking-widest';
+            document.getElementById('btn-ganti-akun').classList.add('hidden');
+            document.getElementById('btn-gabung-grup').classList.remove('hidden');
+            document.getElementById('btn-arsip-mandiri').classList.remove('hidden');
+            
+            switchPage('member-week-step');
+            renderMemberWeeks();
+            renderOverviewTable();
+            showToast("Selamat datang, " + activeData.name);
+        }
+
+        window.logout = function() {
+            currentUser = null; currentRole = null; currentGroupCode = null; activeData = null;
+            document.getElementById('login-code').value = '';
+            showLogin();
+        };
+
+        window.renderAmalanList = function() {
+            const container = document.getElementById('amalan-list-container');
+            container.innerHTML = '';
+            if(!activeData.amalan || activeData.amalan.length === 0) {
+                container.innerHTML = `<div class="text-center p-8 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 text-sm font-medium">Daftar kosong.</div>`;
+                return;
+            }
+            activeData.amalan.forEach((item) => {
+                const badge = item.type === 'checkbox' ? '<span class="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-indigo-100 tracking-widest">Ceklis</span>' : '<span class="bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded text-[8px] font-black uppercase border border-amber-100 tracking-widest">Angka</span>';
+                container.innerHTML += `<div class="flex items-center bg-white border border-slate-100 shadow-sm p-3 rounded-2xl"><div class="flex-1 min-w-0 pr-2"><p class="font-bold text-slate-800 text-sm truncate">${item.name}</p><div class="flex gap-1.5 mt-1.5 flex-wrap">${badge} <span class="text-[8px] font-black tracking-widest text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded">${item.points} pt</span></div></div><button onclick="openAddAmalanModal(${item.id})" class="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 hover:text-indigo-600 shrink-0"><i class="fas fa-pen text-xs"></i></button></div>`;
+            });
+        };
+
+        window.renderMembers = function() {
+            const tbody = document.getElementById('member-table-body');
+            tbody.innerHTML = '';
+            if(!activeData.members) return;
+            activeData.members.forEach((member, index) => {
+                let statusHtml = '';
+                for(let i=1; i<=4; i++) {
+                    const hasData = member.weeks[i] && Object.keys(member.weeks[i].data || {}).length > 0;
+                    if(hasData) statusHtml += `<td class="px-1 py-3 text-center"><button onclick="openDetailEvalModal(${i}, true, ${index})" class="w-7 h-7 mx-auto bg-teal-500 rounded-lg text-white flex items-center justify-center shadow-sm"><i class="fas fa-check text-[10px]"></i></button></td>`;
+                    else statusHtml += `<td class="px-1 py-3 text-center"><div class="w-7 h-7 mx-auto bg-slate-100 rounded-lg border border-slate-200"></div></td>`;
+                }
+                tbody.innerHTML += `<tr class="hover:bg-slate-50 transition-colors"><td class="px-2 py-3 border-b border-slate-100"><p class="font-bold text-slate-700 leading-tight">${member.name}</p></td><td class="px-1 py-3 text-center font-black text-teal-600 border-b border-slate-100">${member.points}</td>${statusHtml}<td class="px-1 py-3 text-center border-b border-slate-100"><button onclick="openRaporModal(${index})" class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-500 hover:bg-indigo-100 transition mx-auto flex items-center justify-center"><i class="fas fa-chart-bar text-xs"></i></button></td></tr>`;
+            });
+        };
+
+        window.renderMemberWeeks = function() {
+            const container = document.getElementById('week-buttons-container');
+            container.innerHTML = '';
+            const member = currentRole === 'mandiri' ? activeData : activeData.members[currentSelectedMemberIndex];
+            const dates = [ { title: 'Pekan 1', range: '1-7 Agu' }, { title: 'Pekan 2', range: '8-14 Agu' }, { title: 'Pekan 3', range: '15-21 Agu' }, { title: 'Pekan 4', range: '22-28 Agu' } ];
+
+            for(let i=1; i<=4; i++) {
+                const wData = member.weeks[i];
+                const isFilled = wData && Object.keys(wData.data || {}).length > 0;
+                let btnClass = isFilled ? "bg-teal-50 border-teal-200" : "bg-white border-slate-200 hover:border-teal-300";
+                let checkIcon = isFilled ? `<i class="fas fa-check-circle text-teal-500 absolute top-4 right-4 text-lg"></i>` : '';
+                container.innerHTML += `<button onclick="openFillForm(${i})" class="border text-left p-4 rounded-2xl shadow-sm relative active:scale-95 ${btnClass}">${checkIcon} <h4 class="font-bold text-slate-800 text-sm">${dates[i-1].title}</h4><p class="text-[10px] font-medium text-slate-500 mt-1"><i class="far fa-calendar"></i> ${dates[i-1].range}</p>${isFilled ? `<span class="text-[9px] font-black uppercase tracking-widest text-teal-700 bg-teal-100 px-2 py-0.5 rounded mt-2 inline-block">${wData.points || 0} pt</span>` : ''}</button>`;
+            }
+        };
+
+        window.openFillForm = function(weekNum) {
+            currentFillWeek = weekNum;
+            const member = currentRole === 'mandiri' ? activeData : activeData?.members?.[currentSelectedMemberIndex];
+            const amalanList = activeData?.amalan;
+            if(!member || !amalanList) return showToast("Data tidak siap", "error");
+
+            switchPage('fill-mutabaah-page');
+            document.getElementById('form-week-title').innerText = "Pekan " + weekNum;
+            const container = document.getElementById('mutabaah-form-container');
+            const weekData = member.weeks?.[weekNum]?.data || {};
+            let finalHtml = '';
+            const daysLabel = ['A', 'S', 'S', 'R', 'K', 'J', 'S'];
+
+            amalanList.forEach((item, index) => {
+                let inputsHtml = '';
+                for (let day = 0; day < 7; day++) {
+                    const inputId = `amalan_${item.id}_${day}`;
+                    const val = weekData[`${item.id}_${day}`];
+                    const isChecked = val === true ? 'checked' : '';
+                    const numVal = (val && val !== true) ? val : '';
+
+                    if (item.type === 'checkbox') {
+                        inputsHtml += `<div class="w-[14.2%] flex justify-center px-0.5"><label class="day-checkbox cursor-pointer relative flex items-center justify-center w-full h-8"><input type="checkbox" id="${inputId}" class="peer sr-only" ${isChecked}><div class="w-full h-full border-2 border-slate-200 rounded-lg flex items-center justify-center text-[11px] font-black text-slate-400 peer-checked:bg-teal-500 peer-checked:border-teal-500 peer-checked:text-white transition-all"><span class="day-text">${daysLabel[day]}</span><i class="fas fa-check check-icon hidden"></i></div></label></div>`;
+                    } else {
+                        inputsHtml += `<div class="w-[14.2%] flex justify-center px-0.5"><input type="number" id="${inputId}" value="${numVal}" class="w-full h-8 text-center border-2 border-slate-200 rounded-lg text-[11px] font-black text-slate-700 bg-slate-50 focus:outline-none focus:border-teal-500"></div>`;
+                    }
+                }
+                finalHtml += `<div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-4"><div class="flex justify-between items-start mb-4 border-b border-slate-50 pb-2"><label class="font-bold text-slate-700 text-sm">${index + 1}. ${item.name}</label><span class="text-[9px] font-black tracking-widest text-teal-600 bg-teal-50 px-2 py-0.5 rounded-md">${item.points} pt</span></div><div class="flex items-center pl-[25%] sm:pl-[30%]">${inputsHtml}</div></div>`;
+            });
+            container.innerHTML = finalHtml;
+        };
+
+        window.saveMutabaah = async function() {
+            const member = currentRole === 'mandiri' ? activeData : activeData.members[currentSelectedMemberIndex];
+            const amalanList = activeData.amalan;
+            let totalPoints = 0;
+            const weekData = {};
+
+            amalanList.forEach(item => {
+                let achievedCount = 0;
+                for(let d=0; d<7; d++) {
+                    const input = document.getElementById(`amalan_${item.id}_${d}`);
+                    if(!input) continue;
+                    if (item.type === 'checkbox') {
+                        weekData[`${item.id}_${d}`] = input.checked;
+                        if(input.checked) achievedCount++;
+                    } else {
+                        weekData[`${item.id}_${d}`] = input.value;
+                        if(input.value && parseInt(input.value) > 0) achievedCount++;
+                    }
+                }
+                totalPoints += Math.floor((achievedCount / 7) * item.points);
+            });
+
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            member.weeks[currentFillWeek] = { data: weekData, points: totalPoints, timestamp: dateStr };
+            member.lastFilled = dateStr;
+            
+            let grandTotal = 0;
+            for(let i=1; i<=4; i++) { if(member.weeks[i]?.points) grandTotal += member.weeks[i].points; }
+            member.points = grandTotal;
+
+            try {
+                if(currentUser && currentGroupCode) {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', currentGroupCode);
+                    await updateDoc(docRef, { ...activeData });
+                }
+            } catch(e) { console.error("Firestore sync error:", e); }
+
+            showToast("Tersimpan!");
+            backToMemberWeek();
+            renderMemberWeeks();
+            renderOverviewTable();
+        };
+
+        window.backToMemberWeek = () => switchPage('member-week-step');
+        window.openCustomMonthPicker = () => document.getElementById('custom-month-modal').classList.remove('hidden');
+        window.closeCustomMonthPicker = () => document.getElementById('custom-month-modal').classList.add('hidden');
+        window.applyCustomMonth = function() {
+            const m = document.getElementById('custom-month-sel').value;
+            const y = document.getElementById('custom-year-sel').value;
+            selectedOverviewMonth = y + "-" + m;
+            document.getElementById('current-month-label').innerText = document.getElementById('custom-month-sel').selectedOptions[0].text.toUpperCase() + " " + y;
+            closeCustomMonthPicker();
+            renderOverviewTable();
+        };
+
+        window.renderOverviewTable = function() {
+            const tbody = document.getElementById('overview-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            const member = currentRole === 'mandiri' ? activeData : activeData?.members?.[currentSelectedMemberIndex];
+            const amalanList = activeData?.amalan;
+            if(!member || !amalanList) return;
+
+            const isCurrentMonth = (selectedOverviewMonth === "2026-08");
+
+            amalanList.forEach(a => {
+                let rowHtml = `<td class="px-2 py-3 border-r border-b border-slate-100 min-w-[140px] sticky left-0 bg-white z-10 text-left"><p class="font-bold text-slate-700">${a.name}</p></td><td class="px-1.5 py-3 border-r border-b border-slate-100 text-[8px] font-black text-slate-400 uppercase text-center">HR</td>`;
+                for(let p=1; p<=4; p++) {
+                    const weekData = isCurrentMonth ? (member.weeks[p]?.data || {}) : {};
+                    for(let d=0; d<7; d++) {
+                        const val = weekData[`${a.id}_${d}`];
+                        let content = ''; let cellClass = "bg-slate-100";
+                        if(val === true) { content = '<i class="fas fa-check text-[8px] text-white"></i>'; cellClass = "bg-teal-500"; }
+                        rowHtml += `<td class="px-0 py-2 border-b border-slate-100 border-r border-slate-100"><div class="w-[16px] h-[16px] mx-auto flex items-center justify-center rounded-[3px] ${cellClass}">${content}</div></td>`;
+                    }
+                }
+                tbody.innerHTML += `<tr>${rowHtml}</tr>`;
+            });
+        };
+
+        // Dummy modal bindings
+        window.openAddAmalanModal = () => document.getElementById('amalan-modal').classList.remove('hidden');
+        window.closeAmalanModal = () => document.getElementById('amalan-modal').classList.add('hidden');
+        window.openAddMemberModal = () => document.getElementById('add-member-modal').classList.remove('hidden');
+        window.closeAddMemberModal = () => document.getElementById('add-member-modal').classList.add('hidden');
+        window.openEditProfileModal = () => document.getElementById('edit-profile-modal').classList.remove('hidden');
+        window.closeEditProfileModal = () => document.getElementById('edit-profile-modal').classList.add('hidden');
+        window.openGabungGrupModal = () => document.getElementById('gabung-grup-modal').classList.remove('hidden');
+        window.closeGabungGrupModal = () => document.getElementById('gabung-grup-modal').classList.add('hidden');
+        window.openHistoryModal = () => document.getElementById('history-modal').classList.remove('hidden');
+        window.closeHistoryModal = () => document.getElementById('history-modal').classList.add('hidden');
+        window.openRaporModal = () => document.getElementById('rapor-modal').classList.remove('hidden');
+        window.closeRaporModal = () => document.getElementById('rapor-modal').classList.add('hidden');
+    </script>
+</body>
+</html>
